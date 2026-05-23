@@ -37,6 +37,7 @@ RUN chmod +x /usr/local/bin/mcp-stockfish
 
 # Set environment
 ENV MCP_STOCKFISH_PATH=/usr/bin/stockfish
+ENV MCP_STOCKFISH_HTTP_PORT=8080
 ENV PATH="/usr/local/bin:${PATH}"
 
 # Switch to non-root user
@@ -45,6 +46,6 @@ WORKDIR /home/mcpuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD echo '{"jsonrpc": "2.0", "method": "ping", "id": 1}' | timeout 2 mcp-stockfish || exit 1
+    CMD if [ "$MCP_STOCKFISH_SERVER_MODE" = "http" ]; then wget -qO- "http://127.0.0.1:${MCP_STOCKFISH_HTTP_PORT}/healthz" >/dev/null; else echo '{"jsonrpc": "2.0", "method": "ping", "id": 1}' | timeout 2 mcp-stockfish >/dev/null; fi || exit 1
 
 ENTRYPOINT ["mcp-stockfish"]
