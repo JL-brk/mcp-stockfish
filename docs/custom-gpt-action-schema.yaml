@@ -1,0 +1,61 @@
+openapi: 3.1.0
+info:
+  title: Stockfish chess analysis API
+  version: 1.0.0
+servers:
+  - url: https://mcp-chess.onrender.com
+paths:
+  /analyze:
+    post:
+      operationId: analyzeChessPosition
+      summary: Analyze a chess position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fen
+              properties:
+                fen:
+                  type: string
+                  description: Chess position in FEN notation.
+                depth:
+                  type: integer
+                  description: Search depth. Defaults to 15. Maximum 20.
+                  minimum: 1
+                  maximum: 20
+                  default: 15
+                movetime_ms:
+                  type: integer
+                  description: Search time in milliseconds. Overrides depth when provided.
+                  minimum: 0
+                  maximum: 30000
+                  default: 0
+                multipv:
+                  type: integer
+                  description: Number of candidate lines. Maximum 5.
+                  minimum: 0
+                  maximum: 5
+                  default: 0
+      responses:
+        '200':
+          description: Successful Stockfish analysis.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bestmove:
+                    type: string
+                  evaluation:
+                    type: string
+                  raw:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Invalid request.
+        '500':
+          description: Server error.
