@@ -4,7 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -145,40 +149,41 @@ EXAMPLES: "position startpos moves e2e4", "go depth 15", "setoption name Hash va
 }
 
 func runHTTPServer(s *server.MCPServer, cfg *Config, log zerolog.Logger) error {
-	// TODO: waiting for https://github.com/mark3labs/mcp-go/pull/331
-	return nil
-	//ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	//defer stop()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	//addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	//log.Info().
-	//	Str("address", addr).
-	//	Bool("cors_enabled", cfg.Server.CORS).
-	//	Msg("MCP Stockfish HTTP server starting")
+	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+	httpServer := server.NewStreamableHTTPServer(
+		s,
+		server.WithEndpointPath("/mcp"),
+	)
 
-	//httpServer := server.NewStreamableHTTPServer(s)
-	//errCh := make(chan error, 1)
-	//go func() {
-	//	errCh <- httpServer.Start(addr)
-	//}()
+	log.Info().
+		Str("address", addr).
+		Str("endpoint", "/mcp").
+		Msg("MCP Stockfish HTTP server starting")
 
-	//select {
-	//case <-ctx.Done():
-	//	log.Info().Msg("Shutdown signal received, stopping HTTP server...")
-	//	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	//	defer cancel()
-	//	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-	//		log.Error().Err(err).Msg("HTTP server shutdown error")
-	//		return err
-	//	}
-	//	log.Info().Msg("HTTP server stopped gracefully.")
-	//	return context.Canceled
-	//case err := <-errCh:
-	//	if err != nil {
-	//		return fmt.Errorf("HTTP server error: %w", err)
-	//	}
-	//	return nil
-	//}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- httpServer.Start(addr)
+	}()
+
+	select {
+	case <-ctx.Done():
+		log.Info().Msg("Shutdown signal received, stopping HTTP server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("HTTP server shutdown error: %w", err)
+		}
+		log.Info().Msg("HTTP server stopped gracefully")
+		return context.Canceled
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("HTTP server error: %w", err)
+		}
+		return nil
+	}
 }
 
 func runStdioServer(s *server.MCPServer, log zerolog.Logger) error {
