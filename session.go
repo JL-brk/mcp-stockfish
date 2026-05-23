@@ -231,6 +231,22 @@ func (sm *SessionManager) cleanupExpiredSessions() {
 	}
 }
 
+func (s *StockfishSession) sendCommand(command string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.lastUsed = time.Now()
+
+	if _, err := s.stdin.WriteString(command + "\n"); err != nil {
+		return fmt.Errorf("failed to write command: %w", err)
+	}
+	if err := s.stdin.Flush(); err != nil {
+		return fmt.Errorf("failed to flush command: %w", err)
+	}
+
+	return nil
+}
+
 func (s *StockfishSession) executeCommand(command string, timeout time.Duration) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
