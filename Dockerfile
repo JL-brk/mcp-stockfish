@@ -5,7 +5,6 @@ WORKDIR /app
 
 COPY go.mod go.sum ./
 RUN go mod download
-RUN go get github.com/mark3labs/mcp-go@481f05674f583f20ce114d9e7efdcc6348d792e7
 
 COPY *.go ./
 
@@ -13,10 +12,12 @@ ARG VERSION=dev
 ARG COMMIT_HASH
 ARG BUILD_TIME
 
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags "-X main.version=${VERSION} -s -w -extldflags '-static'" \
-    -a -installsuffix cgo \
-    -o mcp-stockfish .
+RUN go get github.com/mark3labs/mcp-go@481f05674f583f20ce114d9e7efdcc6348d792e7 \
+    && go mod tidy \
+    && CGO_ENABLED=0 GOOS=linux go build \
+        -ldflags "-X main.version=${VERSION} -s -w -extldflags '-static'" \
+        -a -installsuffix cgo \
+        -o mcp-stockfish .
 
 # Runtime stage
 FROM debian:bookworm-slim
