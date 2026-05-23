@@ -154,14 +154,7 @@ func runHTTPServer(s *server.MCPServer, cfg *Config, log zerolog.Logger) error {
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	mux := http.NewServeMux()
-	underlyingHTTPServer := &http.Server{
-		Addr:    addr,
-		Handler: mux,
-	}
-	mcpHTTPServer := server.NewStreamableHTTPServer(
-		s,
-		server.WithStreamableHTTPServer(underlyingHTTPServer),
-	)
+	mcpHTTPServer := server.NewStreamableHTTPServer(s)
 
 	mux.Handle("/mcp", mcpHTTPServer)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +166,11 @@ func runHTTPServer(s *server.MCPServer, cfg *Config, log zerolog.Logger) error {
 		_, _ = w.Write([]byte("ok\n"))
 	})
 
+	underlyingHTTPServer := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+
 	log.Info().
 		Str("address", addr).
 		Str("mcp_endpoint", "/mcp").
@@ -181,7 +179,7 @@ func runHTTPServer(s *server.MCPServer, cfg *Config, log zerolog.Logger) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- mcpHTTPServer.Start(addr)
+		errCh <- underlyingHTTPServer.ListenAndServe()
 	}()
 
 	select {
@@ -190,6 +188,9 @@ func runHTTPServer(s *server.MCPServer, cfg *Config, log zerolog.Logger) error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := mcpHTTPServer.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("MCP HTTP server shutdown error: %w", err)
+		}
+		if err := underlyingHTTPServer.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("HTTP server shutdown error: %w", err)
 		}
 		log.Info().Msg("HTTP server stopped gracefully")
