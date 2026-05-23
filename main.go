@@ -153,19 +153,35 @@ func runHTTPServer(s *server.MCPServer, cfg *Config, log zerolog.Logger) error {
 	defer stop()
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	httpServer := server.NewStreamableHTTPServer(
+	mux := http.NewServeMux()
+	underlyingHTTPServer := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+	mcpHTTPServer := server.NewStreamableHTTPServer(
 		s,
-		server.WithEndpointPath("/mcp"),
+		server.WithStreamableHTTPServer(underlyingHTTPServer),
 	)
+
+	mux.Handle("/mcp", mcpHTTPServer)
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok\n"))
+	})
 
 	log.Info().
 		Str("address", addr).
-		Str("endpoint", "/mcp").
+		Str("mcp_endpoint", "/mcp").
+		Str("health_endpoint", "/healthz").
 		Msg("MCP Stockfish HTTP server starting")
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- httpServer.Start(addr)
+		errCh <- mcpHTTPServer.Start(addr)
 	}()
 
 	select {
@@ -173,7 +189,7 @@ func runHTTPServer(s *server.MCPServer, cfg *Config, log zerolog.Logger) error {
 		log.Info().Msg("Shutdown signal received, stopping HTTP server...")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		if err := mcpHTTPServer.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("HTTP server shutdown error: %w", err)
 		}
 		log.Info().Msg("HTTP server stopped gracefully")
