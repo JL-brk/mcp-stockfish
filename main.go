@@ -165,6 +165,7 @@ func runHTTPServer(s *server.MCPServer, cfg *Config, log zerolog.Logger) error {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok\n"))
 	})
+	registerAPIRoutes(mux, cfg, log)
 
 	underlyingHTTPServer := &http.Server{
 		Addr:    addr,
@@ -175,6 +176,7 @@ func runHTTPServer(s *server.MCPServer, cfg *Config, log zerolog.Logger) error {
 		Str("address", addr).
 		Str("mcp_endpoint", "/mcp").
 		Str("health_endpoint", "/healthz").
+		Str("analyze_endpoint", "/analyze").
 		Msg("MCP Stockfish HTTP server starting")
 
 	errCh := make(chan error, 1)
