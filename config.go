@@ -48,11 +48,11 @@ func loadConfig() (*Config, error) {
 			CommandTimeout: getDurationEnv("MCP_STOCKFISH_COMMAND_TIMEOUT", 30*time.Second),
 		},
 		Server: ServerConfig{
-			Name:    getEnv("MCP_STOCKFISH_SERVER_NAME", "mcp-stockfish ♟️"),
+			Name:    getEnv("MCP_STOCKFISH_SERVER_NAME", "mcp-stockfish"),
 			Version: version,
 			Mode:    getEnv("MCP_STOCKFISH_SERVER_MODE", "stdio"),
 			Host:    getEnv("MCP_STOCKFISH_HTTP_HOST", "localhost"),
-			Port:    getIntEnv("MCP_STOCKFISH_HTTP_PORT", 8080),
+			Port:    getHTTPPort(),
 			CORS:    getBoolEnv("MCP_STOCKFISH_HTTP_CORS", true),
 		},
 		Logging: LoggingConfig{
@@ -112,6 +112,20 @@ func getIntEnv(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+func getHTTPPort() int {
+	if value := os.Getenv("MCP_STOCKFISH_HTTP_PORT"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil {
+			return parsed
+		}
+	}
+	if value := os.Getenv("PORT"); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil {
+			return parsed
+		}
+	}
+	return 8080
 }
 
 func getDurationEnv(key string, defaultValue time.Duration) time.Duration {
