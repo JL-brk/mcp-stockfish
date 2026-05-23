@@ -90,7 +90,7 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request, cfg *Config, log zero
 		return
 	}
 	if req.MultiPV > 1 {
-		if _, err := session.executeCommand(fmt.Sprintf("setoption name MultiPV value %d", req.MultiPV), commandTimeout); err != nil {
+		if err := session.sendCommand(fmt.Sprintf("setoption name MultiPV value %d", req.MultiPV)); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("multipv option failed: %v", err))
 			return
 		}
@@ -99,7 +99,7 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request, cfg *Config, log zero
 			return
 		}
 	}
-	if _, err := session.executeCommand("position fen "+req.FEN, commandTimeout); err != nil {
+	if err := session.sendCommand("position fen " + req.FEN); err != nil {
 		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("position setup failed: %v", err))
 		return
 	}
