@@ -1,0 +1,31 @@
+app = "mcp-stockfish"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  MCP_STOCKFISH_SERVER_MODE = "http"
+  MCP_STOCKFISH_HTTP_HOST = "0.0.0.0"
+  MCP_STOCKFISH_HTTP_PORT = "8080"
+  MCP_STOCKFISH_LOG_LEVEL = "info"
+  MCP_STOCKFISH_LOG_OUTPUT = "stderr"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "2s"
+    method = "GET"
+    path = "/healthz"
